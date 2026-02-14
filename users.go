@@ -3,7 +3,6 @@ package main
 import (
 	"Go-Server/internal/database"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -30,9 +29,6 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
-
-	fmt.Printf("Lets see: %v", email.Email)
-
 	user, err := cfg.db.CreateUser(r.Context(), database.CreateUserParams{
 		ID:    uuid.New(),
 		Email: email.Email,

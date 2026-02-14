@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -12,6 +13,16 @@ import (
 const lengthOfChirp = 140
 
 var badWords = map[string]struct{}{"kerfuffle": {}, "sharbert": {}, "fornax": {}}
+
+type Chirp struct {
+	ID        uuid.UUID `json:"id"`
+	Body      string    `json:"body"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	UserID    uuid.UUID `json:"user_id"`
+}
+
+type Chirps []Chirp
 
 func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request) {
 	type parameter struct {
@@ -45,9 +56,12 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	respondWithJSON(w, http.StatusCreated, parameter{
-		Body:   chirp.Body,
-		UserID: chirp.UserID,
+	respondWithJSON(w, http.StatusCreated, Chirp{
+		Body:      chirp.Body,
+		UserID:    chirp.UserID,
+		ID:        chirp.ID,
+		CreatedAt: chirp.CreatedAt,
+		UpdatedAt: chirp.UpdatedAt,
 	})
 }
 
@@ -66,4 +80,23 @@ func breakWordsReplacement(sentence string) string {
 	}
 
 	return strings.Join(cleaned, " ")
+}
+
+func (cfg *apiConfig) handlerGetAllChips(w http.ResponseWriter, r *http.Request) {
+	var response Chirps
+	chirps, err := cfg.db.GetAllChirps(r.Context())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	for _, chirp := range chirps {
+		response = append(response, Chirp{
+			Body:      chirp.Body,
+			UserID:    chirp.UserID,
+			ID:        chirp.ID,
+			CreatedAt: chirp.CreatedAt,
+			UpdatedAt: chirp.UpdatedAt,
+		})
+	}
+	respondWithJSON(w, http.StatusOK, response)
 }
