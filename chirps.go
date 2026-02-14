@@ -100,3 +100,24 @@ func (cfg *apiConfig) handlerGetAllChips(w http.ResponseWriter, r *http.Request)
 	}
 	respondWithJSON(w, http.StatusOK, response)
 }
+
+func (cfg *apiConfig) handlerGetChirp(w http.ResponseWriter, r *http.Request) {
+	vars := r.PathValue("chirpID")
+	id, err := uuid.Parse(vars)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	chirp, err := cfg.db.GetChirp(r.Context(), id)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "Not Found")
+		return
+	}
+	respondWithJSON(w, http.StatusOK, Chirp{
+		Body:      chirp.Body,
+		UserID:    chirp.UserID,
+		ID:        chirp.ID,
+		CreatedAt: chirp.CreatedAt,
+		UpdatedAt: chirp.UpdatedAt,
+	})
+}
