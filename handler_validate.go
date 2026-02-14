@@ -10,13 +10,13 @@ func respondWithError(w http.ResponseWriter, code int, message string) {
 		Error string `json:"error"`
 	}
 	respondWithJSON(w, code, errorResponse{Error: message})
-	
+
 }
 
 func respondWithJSON(w http.ResponseWriter, code int, payload any) {
 	response, err := json.Marshal(payload)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")

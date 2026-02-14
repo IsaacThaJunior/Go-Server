@@ -19,6 +19,8 @@ func main() {
 		fileserverHits: atomic.Int32{},
 	}
 
+	
+
 	mux.Handle("/app/", http.StripPrefix("/app/", cfg.middlewareMetricsInc(fileServer)))
 	mux.HandleFunc("GET /admin/metrics", cfg.readCounter)
 	mux.HandleFunc("POST /admin/reset", cfg.resetCounter)
