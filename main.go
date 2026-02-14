@@ -1,31 +1,56 @@
 package main
 
 import (
+	"Go-Server/internal/database"
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"sync/atomic"
+
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	db             *database.Queries
+	dev            bool
 }
 
 func main() {
+	err := godotenv.Load()
+
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	dbURL := os.Getenv("DB_URL")
+	environment := os.Getenv("PLATFORM")
+
+	db, err := sql.Open("postgres", dbURL)
+
+	if err != nil {
+		log.Fatal("error connecting to db", err)
+	}
+
+	dbQueries := database.New(db)
 	mux := http.NewServeMux()
 	fileServer := http.FileServer(http.Dir("."))
 
 	cfg := &apiConfig{
 		fileserverHits: atomic.Int32{},
+		db:             dbQueries,
+		dev:            environment == "dev",
 	}
-
-	
 
 	mux.Handle("/app/", http.StripPrefix("/app/", cfg.middlewareMetricsInc(fileServer)))
 	mux.HandleFunc("GET /admin/metrics", cfg.readCounter)
 	mux.HandleFunc("POST /admin/reset", cfg.resetCounter)
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
-	mux.HandleFunc("POST /api/validate_chirp", handlerBody)
+	mux.HandleFunc("POST /api/chirps", cfg.handlerCreateChirp)
+	mux.HandleFunc("POST /api/users", cfg.handlerCreateUser)
 
 	server := &http.Server{
 		Addr:    ":8080",
