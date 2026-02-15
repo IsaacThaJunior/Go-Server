@@ -52,12 +52,17 @@ func main() {
 	mux.HandleFunc("GET /admin/metrics", cfg.readCounter)
 	mux.HandleFunc("POST /admin/reset", cfg.resetCounter)
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
+
 	mux.HandleFunc("POST /api/chirps", cfg.handlerCreateChirp)
 	mux.HandleFunc("GET /api/chirps", cfg.handlerGetAllChips)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", cfg.handlerGetChirp)
-	mux.HandleFunc("POST /api/login", cfg.handlerLoginUser)
+
 	mux.HandleFunc("POST /api/users", cfg.handlerCreateUser)
+	mux.HandleFunc("PUT /api/users", cfg.handlerEditUser)
+	
+	mux.HandleFunc("POST /api/login", cfg.handlerLoginUser)
 	mux.HandleFunc("POST /api/refresh", cfg.handlerGetNewRefreshToken)
+	mux.HandleFunc("POST /api/revoke", cfg.handlerRevokeToken)
 
 	server := &http.Server{
 		Addr:    ":8080",
