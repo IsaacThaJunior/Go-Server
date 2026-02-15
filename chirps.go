@@ -134,7 +134,7 @@ func (cfg *apiConfig) handlerDeleteChirp(w http.ResponseWriter, r *http.Request,
 	}
 
 	if userID != chirp.UserID {
-		respondWithError(w, http.StatusForbidden, "Unauthorized", errors.New("User can perform this action as the user id doesnt match the chirp user id"))
+		respondWithError(w, http.StatusForbidden, "Unauthorized", errors.New("User can't perform this action as the user id doesnt match the chirp user id"))
 		return
 	}
 
@@ -167,4 +167,46 @@ func (cfg *apiConfig) getChirpFromDb(r *http.Request) (Chirp, error) {
 		Body:   chirp.Body,
 		UserID: chirp.UserID,
 	}, nil
+}
+
+func (cfg *apiConfig) handlerUpdateChirpyRed(w http.ResponseWriter, r *http.Request) {
+	type parameter struct {
+		Event string `json:"event"`
+		Data  struct {
+			UserID string `json:"user_id"`
+		} `json:"data"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	params := parameter{}
+
+	err := decoder.Decode(&params)
+
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Bad request", err)
+		return
+	}
+
+	if params.Event != "user.upgraded" {
+		respondWithJSON(w, http.StatusNoContent, nil)
+		return
+	}
+
+	parsedId, err := uuid.Parse(params.Data.UserID)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid User ID", err)
+		return
+	}
+
+	_, err = cfg.db.UpgradeChirpyStat(r.Context(), database.UpgradeChirpyStatParams{
+		ID:          parsedId,
+		IsChirpyRed: true,
+	})
+
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "No user found", err)
+		return
+	}
+
+	respondWithJSON(w, http.StatusNoContent, nil)
 }

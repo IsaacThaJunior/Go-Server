@@ -53,6 +53,7 @@ func main() {
 	mux.HandleFunc("POST /admin/reset", cfg.resetCounter)
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
 
+	mux.HandleFunc("POST /api/polka/webhooks", cfg.handlerUpdateChirpyRed)
 	mux.HandleFunc("POST /api/chirps", cfg.handlerCreateChirp)
 	mux.HandleFunc("GET /api/chirps", cfg.handlerGetAllChips)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", cfg.handlerGetChirp)
