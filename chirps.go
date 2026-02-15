@@ -1,8 +1,10 @@
 package main
 
 import (
+	internal "Go-Server/internal/auth"
 	"Go-Server/internal/database"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -26,29 +28,44 @@ type Chirps []Chirp
 
 func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request) {
 	type parameter struct {
-		Body   string    `json:"body"`
-		UserID uuid.UUID `json:"user_id"`
+		Body string `json:"body"`
+	}
+
+	getToken, err := internal.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	log.Printf("Token: %s", getToken)
+
+	userId, err := internal.ValidateJWT(getToken, cfg.secret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
 	}
 
 	decoder := json.NewDecoder(r.Body)
 	params := parameter{}
-	err := decoder.Decode(&params)
+	err = decoder.Decode(&params)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Something went wrong")
 		return
 	}
+	log.Println("Here be the params user ID", userId)
 
 	if len(params.Body) > lengthOfChirp {
 		respondWithError(w, http.StatusBadRequest, "Chirp is too long")
 		return
 	}
+	log.Println("Here be the params body", params.Body)
 
 	cleaned_body := breakWordsReplacement(params.Body)
 
 	chirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
 		ID:     uuid.New(),
 		Body:   cleaned_body,
-		UserID: params.UserID,
+		UserID: userId,
 	})
 
 	if err != nil {

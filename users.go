@@ -1,7 +1,7 @@
 package main
 
 import (
-	"Go-Server/internal"
+	internal "Go-Server/internal/auth"
 	"Go-Server/internal/database"
 	"encoding/json"
 	"net/http"
@@ -15,11 +15,15 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Email     string    `json:"email"`
+	Token     string    `json:"token"`
 }
 type UserReq struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	Expires  int64  `json:"expires_in_seconds"`
 }
+
+const tokenTime = 1 * time.Hour
 
 func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
@@ -48,11 +52,24 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	timeThatWillBeUsed := tokenTime
+
+	if userBody.Expires > 0 { // or whatever condition you mean
+		timeThatWillBeUsed = time.Duration(userBody.Expires) * time.Minute
+	}
+	token, err := internal.MakeJWT(user.ID, cfg.secret, timeThatWillBeUsed)
+
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
 	respondWithJSON(w, http.StatusCreated, User{
 		ID:        user.ID,
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 		Email:     user.Email,
+		Token:     token,
 	})
 }
 
@@ -81,10 +98,23 @@ func (cfg *apiConfig) handlerLoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	timeThatWillBeUsed := tokenTime
+
+	if userReq.Expires > 0 { // or whatever condition you mean
+		timeThatWillBeUsed = time.Duration(userReq.Expires) * time.Minute
+	}
+	token, err := internal.MakeJWT(user.ID, cfg.secret, timeThatWillBeUsed)
+
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
 	respondWithJSON(w, http.StatusOK, User{
 		ID:        user.ID,
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 		Email:     user.Email,
+		Token:     token,
 	})
 }
