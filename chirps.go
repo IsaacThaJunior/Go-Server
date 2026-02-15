@@ -3,7 +3,9 @@ package main
 import (
 	internal "Go-Server/internal/auth"
 	"Go-Server/internal/database"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -110,13 +112,7 @@ func (cfg *apiConfig) handlerGetAllChips(w http.ResponseWriter, r *http.Request)
 }
 
 func (cfg *apiConfig) handlerGetChirp(w http.ResponseWriter, r *http.Request) {
-	vars := r.PathValue("chirpID")
-	id, err := uuid.Parse(vars)
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "No Chirp ID", err)
-		return
-	}
-	chirp, err := cfg.db.GetChirp(r.Context(), id)
+	chirp, err := cfg.getChirpFromDb(r)
 	if err != nil {
 		respondWithError(w, http.StatusNotFound, "Chirp doesnt exist", err)
 		return
@@ -128,4 +124,47 @@ func (cfg *apiConfig) handlerGetChirp(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: chirp.CreatedAt,
 		UpdatedAt: chirp.UpdatedAt,
 	})
+}
+
+func (cfg *apiConfig) handlerDeleteChirp(w http.ResponseWriter, r *http.Request, userID uuid.UUID, tokenString string) {
+	chirp, err := cfg.getChirpFromDb(r)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, InternalServerMessage, err)
+		return
+	}
+
+	if userID != chirp.UserID {
+		respondWithError(w, http.StatusForbidden, "Unauthorized", errors.New("User can perform this action as the user id doesnt match the chirp user id"))
+		return
+	}
+
+	err = cfg.db.DeleteOneChirp(r.Context(), chirp.ID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondWithError(w, http.StatusNotFound, "No chirp found", err)
+			return
+		}
+		respondWithError(w, http.StatusInternalServerError, InternalServerMessage, err)
+		return
+	}
+
+	respondWithJSON(w, http.StatusNoContent, nil)
+
+}
+
+func (cfg *apiConfig) getChirpFromDb(r *http.Request) (Chirp, error) {
+	vars := r.PathValue("chirpID")
+	id, err := uuid.Parse(vars)
+	if err != nil {
+		return Chirp{}, err
+	}
+	chirp, err := cfg.db.GetChirp(r.Context(), id)
+	if err != nil {
+		return Chirp{}, err
+	}
+	return Chirp{
+		ID:     chirp.ID,
+		Body:   chirp.Body,
+		UserID: chirp.UserID,
+	}, nil
 }

@@ -65,3 +65,44 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 		Token:     token,
 	})
 }
+
+func (cfg *apiConfig) handlerEditUser(w http.ResponseWriter, r *http.Request, userId uuid.UUID, tokenString string) {
+
+	decoder := json.NewDecoder(r.Body)
+
+	// Get and decode body from request
+	var userBody UserReq
+	err := decoder.Decode(&userBody)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request payload", err)
+		return
+	}
+
+	// hash password and then update the user password and email
+	hashedPassword, err := internal.HashPassword(userBody.Password)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, InternalServerMessage, err)
+		return
+	}
+
+	updatedUser, err := cfg.db.UpdateUser(r.Context(), database.UpdateUserParams{
+		ID:             userId,
+		Email:          userBody.Email,
+		HashedPassword: hashedPassword,
+	})
+
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, InternalServerMessage, err)
+		return
+	}
+
+	// Send back user if everything works out
+	respondWithJSON(w, http.StatusOK, User{
+		ID:        userId,
+		CreatedAt: updatedUser.CreatedAt,
+		UpdatedAt: updatedUser.UpdatedAt,
+		Email:     updatedUser.Email,
+		Token:     tokenString,
+	})
+
+}

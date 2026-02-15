@@ -12,7 +12,7 @@ import (
 )
 
 const createChirp = `-- name: CreateChirp :one
-INSERT INTO chirps (id, body, user_id) 
+INSERT INTO chirps (id, body, user_id)
 VALUES ($1, $2, $3)
 RETURNING id, body, created_at, updated_at, user_id
 `
@@ -45,8 +45,19 @@ func (q *Queries) DeleteAllChirps(ctx context.Context) error {
 	return err
 }
 
+const deleteOneChirp = `-- name: DeleteOneChirp :exec
+DELETE FROM chirps
+WHERE id = $1
+`
+
+func (q *Queries) DeleteOneChirp(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteOneChirp, id)
+	return err
+}
+
 const getAllChirps = `-- name: GetAllChirps :many
-SELECT id, body, created_at, updated_at, user_id FROM chirps
+SELECT id, body, created_at, updated_at, user_id
+FROM chirps
 `
 
 func (q *Queries) GetAllChirps(ctx context.Context) ([]Chirp, error) {
@@ -79,7 +90,8 @@ func (q *Queries) GetAllChirps(ctx context.Context) ([]Chirp, error) {
 }
 
 const getChirp = `-- name: GetChirp :one
-SELECT id, body, created_at, updated_at, user_id FROM chirps
+SELECT id, body, created_at, updated_at, user_id
+FROM chirps
 WHERE id = $1
 `
 
