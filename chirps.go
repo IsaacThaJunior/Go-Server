@@ -4,17 +4,12 @@ import (
 	internal "Go-Server/internal/auth"
 	"Go-Server/internal/database"
 	"encoding/json"
-	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 )
-
-const lengthOfChirp = 140
-
-var badWords = map[string]struct{}{"kerfuffle": {}, "sharbert": {}, "fornax": {}}
 
 type Chirp struct {
 	ID        uuid.UUID `json:"id"`
@@ -33,15 +28,13 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 
 	getToken, err := internal.GetBearerToken(r.Header)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized", err)
 		return
 	}
 
-	log.Printf("Token: %s", getToken)
-
 	userId, err := internal.ValidateJWT(getToken, cfg.secret)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized", err)
 		return
 	}
 
@@ -49,16 +42,14 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 	params := parameter{}
 	err = decoder.Decode(&params)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Something went wrong")
+		respondWithError(w, http.StatusBadRequest, "Something went wrong", err)
 		return
 	}
-	log.Println("Here be the params user ID", userId)
 
 	if len(params.Body) > lengthOfChirp {
-		respondWithError(w, http.StatusBadRequest, "Chirp is too long")
+		respondWithError(w, http.StatusBadRequest, "Chirp is too long", err)
 		return
 	}
-	log.Println("Here be the params body", params.Body)
 
 	cleaned_body := breakWordsReplacement(params.Body)
 
@@ -69,7 +60,7 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 	})
 
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		respondWithError(w, http.StatusInternalServerError, InternalServerMessage, err)
 		return
 	}
 
@@ -103,7 +94,7 @@ func (cfg *apiConfig) handlerGetAllChips(w http.ResponseWriter, r *http.Request)
 	var response Chirps
 	chirps, err := cfg.db.GetAllChirps(r.Context())
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		respondWithError(w, http.StatusInternalServerError, InternalServerMessage, err)
 		return
 	}
 	for _, chirp := range chirps {
@@ -122,12 +113,12 @@ func (cfg *apiConfig) handlerGetChirp(w http.ResponseWriter, r *http.Request) {
 	vars := r.PathValue("chirpID")
 	id, err := uuid.Parse(vars)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, err.Error())
+		respondWithError(w, http.StatusBadRequest, "No Chirp ID", err)
 		return
 	}
 	chirp, err := cfg.db.GetChirp(r.Context(), id)
 	if err != nil {
-		respondWithError(w, http.StatusNotFound, "Not Found")
+		respondWithError(w, http.StatusNotFound, "Chirp doesnt exist", err)
 		return
 	}
 	respondWithJSON(w, http.StatusOK, Chirp{
