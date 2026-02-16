@@ -6,7 +6,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -94,11 +96,36 @@ func breakWordsReplacement(sentence string) string {
 
 func (cfg *apiConfig) handlerGetAllChips(w http.ResponseWriter, r *http.Request) {
 	var response Chirps
-	chirps, err := cfg.db.GetAllChirps(r.Context())
+	authorIDParam := r.URL.Query().Get("author_id")
+	var chirps []database.Chirp
+	var err error
+
+	if authorIDParam != "" {
+		parsedID, parseErr := uuid.Parse(authorIDParam)
+		if parseErr != nil {
+			respondWithError(w, http.StatusBadRequest, "invalid author_id", parseErr)
+			return
+		}
+		chirps, err = cfg.db.GetChirpsByAuthor(r.Context(), parsedID)
+	} else {
+		chirps, err = cfg.db.GetAllChirps(r.Context())
+	}
+
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, InternalServerMessage, err)
 		return
 	}
+
+	sortParam := r.URL.Query().Get("sort")
+	desc := sortParam == "desc"
+
+	sort.Slice(chirps, func(i, j int) bool {
+		if desc {
+			return chirps[i].CreatedAt.After(chirps[j].CreatedAt)
+		}
+		return chirps[i].CreatedAt.Before(chirps[j].CreatedAt)
+	})
+
 	for _, chirp := range chirps {
 		response = append(response, Chirp{
 			Body:      chirp.Body,
@@ -108,6 +135,7 @@ func (cfg *apiConfig) handlerGetAllChips(w http.ResponseWriter, r *http.Request)
 			UpdatedAt: chirp.UpdatedAt,
 		})
 	}
+	log.Println(response)
 	respondWithJSON(w, http.StatusOK, response)
 }
 
@@ -189,6 +217,17 @@ func (cfg *apiConfig) handlerUpdateChirpyRed(w http.ResponseWriter, r *http.Requ
 
 	if params.Event != "user.upgraded" {
 		respondWithJSON(w, http.StatusNoContent, nil)
+		return
+	}
+
+	apiString, err := internal.GetAPIKey(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "You need a valid APIKEY", err)
+		return
+	}
+
+	if apiString != cfg.polkaKey {
+		respondWithError(w, http.StatusUnauthorized, "Wrong APIKEY", errors.New("APIKEY is wrong!"))
 		return
 	}
 
